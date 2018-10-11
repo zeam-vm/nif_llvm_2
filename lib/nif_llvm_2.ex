@@ -5,13 +5,12 @@ defmodule NifLlvm2 do
   Documentation for NifLlvm2.
   """
 
+
   @doc """
+    ## Examples
 
-  ## Examples
-
-    iex> NifLlvm2.add(1, 2)
-    {:ok, 3}
-
+    iex> NifLlvm2.generate_code(1)
+    :ok
   """
-  def add(_a, _b), do: exit(:nif_not_loaded)
+  def generate_code(_path), do: exit(:nif_not_loaded)
 end
