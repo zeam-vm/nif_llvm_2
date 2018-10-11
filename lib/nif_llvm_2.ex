@@ -9,8 +9,8 @@ defmodule NifLlvm2 do
   @doc """
     ## Examples
 
-    iex> NifLlvm2.generate_code(1)
+    iex> NifLlvm2.generate_code()
     :ok
   """
-  def generate_code(_path), do: exit(:nif_not_loaded)
+  def generate_code(), do: exit(:nif_not_loaded)
 end
