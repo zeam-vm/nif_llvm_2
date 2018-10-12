@@ -1,3 +1,4 @@
 %{
+  "ok": {:hex, :ok, "2.0.0", "bbfa96d5c35956b8a687aa1513a08f1287f77993a7b5554cd3db33c19c9e76fa", [:mix], [], "hexpm"},
   "rustler": {:hex, :rustler, "0.18.0", "db4bd0c613d83a1badc31be90ddada6f9821de29e4afd15c53a5da61882e4f2d", [:mix], [], "hexpm"},
 }

@@ -9,13 +9,14 @@ use llvm_sys::core::*;
 use llvm_sys::target;
 use llvm_sys::analysis::{LLVMVerifyModule, LLVMVerifierFailureAction};
 use llvm_sys::execution_engine::*;
+use llvm_sys::LLVMModule;
 use std::ffi::CString;
-use std::os::raw::{c_char};
+use std::os::raw::c_char;
 
 mod atoms {
     rustler_atoms! {
         atom ok;
-        //atom error;
+        atom error;
         //atom __true__ = "true";
         //atom __false__ = "false";
     }
@@ -23,7 +24,8 @@ mod atoms {
 
 rustler_export_nifs! {
     "Elixir.NifLlvm2",
-    [("generate_code", 0, generate_code)],
+    [("generate_code", 0, generate_code),
+     ("execute_code",  1, execute_code)],
     None
 }
 
@@ -49,6 +51,28 @@ define i32 @main() #0 {
 }
 
 */
+
+mod llvm {
+    use llvm_sys::LLVMModule;
+    use std::sync::RwLock;
+    lazy_static! {
+        pub static ref VEC_MUT: RwLock<Vec<&'static LLVMModule>> = {
+            let v = Vec::new();
+            RwLock::new(v)
+        };
+    }
+}
+
+fn write_vec_mut(module: &'static LLVMModule) -> Result<usize, String> {
+    let mut v = try!(llvm::VEC_MUT.write().map_err(|e| e.to_string()));
+    v.push(module);
+    Ok(v.len() - 1)
+}
+
+fn read_vec(id: usize) -> Result<&'static LLVMModule, String> {
+    let v = try!(llvm::VEC_MUT.read().map_err(|e| e.to_string()));
+    Ok(v[id])
+}
 
 fn initialize_llvm() {
     unsafe {
@@ -123,31 +147,52 @@ fn generate_code<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>> {
     // Dump the LLVM IR to stdout so we can see what we've created
     unsafe { LLVMDumpModule(module) }
 
-    // create our exe engine
-    let mut engine: LLVMExecutionEngineRef = 0 as LLVMExecutionEngineRef;
-    let ok = unsafe {
-        error = 0 as *mut c_char;
-        let buf: *mut *mut c_char = &mut error;
-        let engine_ref: *mut LLVMExecutionEngineRef = &mut engine;
-        LLVMLinkInInterpreter();
-        LLVMCreateInterpreterForModule(engine_ref, module, buf)
-    };
+    match unsafe { write_vec_mut(&*module) } {
+        Ok(r) => Ok((atoms::ok(), r).encode(env)),
+        Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
+    }
+}
 
-    if ok == llvm_error {
-        let err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
-        println!("Execution error: {}", err_msg);
-    } else {
-        // run the function!
-        let func_name = CString::new("main").unwrap();
-        let named_function = unsafe { LLVMGetNamedFunction(module, func_name.as_ptr()) };
-        let mut params = [];
-        let func_result = unsafe { LLVMRunFunction(engine, named_function, params.len() as u32, params.as_mut_ptr()) };
-        let result = unsafe { LLVMGenericValueToInt(func_result, 0) };
-        println!("{} + {} = {}", val1, val2, result);
+fn execute_code<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
+    let id: usize = try!(args[0].decode());
+    match read_vec(id) {
+        Ok(m) => {
+            // #[derive(Copy, Clone)]
+            let module = m as *const LLVMModule as *mut LLVMModule;
+
+            let llvm_error = 1;
+            let val1 = 32;
+            let val2 = 16;
+
+            // create our exe engine
+            let mut error: *mut c_char = 0 as *mut c_char;
+            let mut engine: LLVMExecutionEngineRef = 0 as LLVMExecutionEngineRef;
+            let ok = unsafe {
+                let buf: *mut *mut c_char = &mut error;
+                let engine_ref: *mut LLVMExecutionEngineRef = &mut engine;
+                LLVMLinkInInterpreter();
+                LLVMCreateInterpreterForModule(engine_ref, module, buf)
+            };
+
+            if ok == llvm_error {
+                let err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
+                println!("Execution error: {}", err_msg);
+            } else {
+                // run the function!
+                let func_name = CString::new("main").unwrap();
+                let named_function = unsafe { LLVMGetNamedFunction(module, func_name.as_ptr()) };
+                let mut params = [];
+                let func_result = unsafe { LLVMRunFunction(engine, named_function, params.len() as u32, params.as_mut_ptr()) };
+                let result = unsafe { LLVMGenericValueToInt(func_result, 0) };
+                println!("{} + {} = {}", val1, val2, result);
+            }
+
+            // Clean up the module after we're done with it.
+            unsafe { LLVMDisposeModule(module) }
+
+            Ok(atoms::ok().encode(env))
+        },
+        Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
     }
 
-    // Clean up the module after we're done with it.
-    unsafe { LLVMDisposeModule(module) }
-
-    Ok(atoms::ok().encode(env))
 }

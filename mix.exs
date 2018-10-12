@@ -30,7 +30,8 @@ defmodule NifLlvm2.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-    	{:rustler, "~> 0.18.0"}
+    	{:rustler, "~> 0.18.0"},
+      {:ok,      "~> 2.0"}
     ]
   end
 end
