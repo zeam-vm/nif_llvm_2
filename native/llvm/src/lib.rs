@@ -157,7 +157,6 @@ fn execute_code<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
     let id: usize = try!(args[0].decode());
     match read_vec(id) {
         Ok(m) => {
-            // #[derive(Copy, Clone)]
             let module = m as *const LLVMModule as *mut LLVMModule;
 
             let llvm_error = 1;
