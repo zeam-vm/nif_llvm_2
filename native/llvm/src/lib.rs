@@ -24,8 +24,10 @@ mod atoms {
 
 rustler_export_nifs! {
     "Elixir.NifLlvm2",
-    [("generate_code", 0, generate_code),
-     ("execute_code",  1, execute_code)],
+    [("generate_code_nif", 0, generate_code_nif),
+     ("execute_code_nif",  1, execute_code_nif),
+     ("initialize_native_target", 0, initialize_native_target),
+     ("initialize_native_asm_printer", 0, initialize_native_asm_printer)],
     None
 }
 
@@ -74,24 +76,25 @@ fn read_vec(id: usize) -> Result<&'static LLVMModule, String> {
     Ok(v[id])
 }
 
-fn initialize_llvm() {
-    unsafe {
-        if target::LLVM_InitializeNativeTarget() != 0 {
-            panic!("Could not initialize target")
-        }
-        if target::LLVM_InitializeNativeAsmPrinter() != 0 {
-            panic!("Could not initialize ASM Printer")
-        }
-    }
+fn initialize_native_target<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>> {
+      match unsafe { target::LLVM_InitializeNativeTarget() } {
+      	0 => Ok(atoms::ok().encode(env)),
+      	_ => Ok(atoms::error().encode(env)),
+      }
 }
 
-fn generate_code<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>> {
+fn initialize_native_asm_printer<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>> {
+      match unsafe { target::LLVM_InitializeNativeAsmPrinter() } {
+      	0 => Ok(atoms::ok().encode(env)),
+      	_ => Ok(atoms::error().encode(env)),
+      }
+}
+
+
+fn generate_code_nif<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>> {
     let llvm_error = 1;
     let val1 = 32;
     let val2 = 16;
-
-    initialize_llvm();
-
 
     // setup our builder and module
     let builder = unsafe { LLVMCreateBuilder() };
@@ -153,7 +156,7 @@ fn generate_code<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>> {
     }
 }
 
-fn execute_code<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
+fn execute_code_nif<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
     let id: usize = try!(args[0].decode());
     match read_vec(id) {
         Ok(m) => {
