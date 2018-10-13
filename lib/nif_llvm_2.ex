@@ -20,39 +20,40 @@ defmodule NifLlvm2 do
     end
   end
 
-  def run_code() do
+  def does_support_native() do
     case System.get_env(@does_support_native) do
       nil ->
         init()
-        run_code()
-      "true" ->
+        does_support_native()
+      "true" -> true
+      _ -> false
+    end
+  end
+
+  def run_code() do
+    case does_support_native() do
+      true ->
         generate_code_nif()
         ~> execute_code_nif()
-      "false" ->
+      _ ->
         {:error, :error}
     end
   end
 
   def generate_code() do
-    case System.get_env(@does_support_native) do
-      nil ->
-        init()
-        generate_code()
-      "true" ->
+    case does_support_native() do
+      true ->
         generate_code_nif()
-      "false" ->
+      _ ->
         {:error, :error}
     end
   end
 
   def execute_code(code) do
-    case System.get_env(@does_support_native) do
-      nil ->
-        init()
-        execute_code(code)
-      "true" ->
+    case does_support_native() do
+      true ->
         execute_code_nif(code)
-      "false" ->
+      _ ->
         {:error, :error}
     end
   end
