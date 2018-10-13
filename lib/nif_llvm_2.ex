@@ -22,6 +22,9 @@ defmodule NifLlvm2 do
 
   def run_code() do
     case System.get_env(@does_support_native) do
+      nil ->
+        init()
+        run_code()
       "true" ->
         generate_code_nif()
         ~> execute_code_nif()
@@ -32,6 +35,9 @@ defmodule NifLlvm2 do
 
   def generate_code() do
     case System.get_env(@does_support_native) do
+      nil ->
+        init()
+        generate_code()
       "true" ->
         generate_code_nif()
       "false" ->
@@ -41,6 +47,9 @@ defmodule NifLlvm2 do
 
   def execute_code(code) do
     case System.get_env(@does_support_native) do
+      nil ->
+        init()
+        execute_code(code)
       "true" ->
         execute_code_nif(code)
       "false" ->
