@@ -166,37 +166,39 @@ fn execute_code_nif<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> 
         Ok(m) => {
             let module = m as *const LLVMModule as *mut LLVMModule;
 
-            let llvm_error = 1;
+            const LLVM_ERROR: i32 = 1;
             let val1 = 32;
             let val2 = 16;
 
             // create our exe engine
             let mut error: *mut c_char = 0 as *mut c_char;
             let mut engine: LLVMExecutionEngineRef = 0 as LLVMExecutionEngineRef;
-            let ok = unsafe {
+            match unsafe {
                 let buf: *mut *mut c_char = &mut error;
                 let engine_ref: *mut LLVMExecutionEngineRef = &mut engine;
                 LLVMLinkInInterpreter();
                 LLVMCreateInterpreterForModule(engine_ref, module, buf)
-            };
-
-            if ok == llvm_error {
-                let err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
-                println!("Execution error: {}", err_msg);
-            } else {
-                // run the function!
-                let func_name = CString::new("main").unwrap();
-                let named_function = unsafe { LLVMGetNamedFunction(module, func_name.as_ptr()) };
-                let mut params = [];
-                let func_result = unsafe { LLVMRunFunction(engine, named_function, params.len() as u32, params.as_mut_ptr()) };
-                let result = unsafe { LLVMGenericValueToInt(func_result, 0) };
-                println!("{} + {} = {}", val1, val2, result);
+            } {
+                LLVM_ERROR => {
+                    let _err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
+                    // println!("Execution error: {}", err_msg);
+                    unsafe { LLVMDisposeModule(module) }
+                    Ok((atoms::error(), atoms::error()).encode(env))
+                },
+                _ => {
+                    // run the function!
+                    let func_name = CString::new("main").unwrap();
+                    let named_function = unsafe { LLVMGetNamedFunction(module, func_name.as_ptr()) };
+                    let mut params = [];
+                    let func_result = unsafe { LLVMRunFunction(engine, named_function, params.len() as u32, params.as_mut_ptr()) };
+                    let result = unsafe { LLVMGenericValueToInt(func_result, 0) };
+                    println!("{} + {} = {}", val1, val2, result);
+                    // Clean up the module after we're done with it.
+                    unsafe { LLVMDisposeModule(module) }
+                    Ok(atoms::ok().encode(env))
+                }
             }
 
-            // Clean up the module after we're done with it.
-            unsafe { LLVMDisposeModule(module) }
-
-            Ok(atoms::ok().encode(env))
         },
         Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
     }
