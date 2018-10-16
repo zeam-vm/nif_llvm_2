@@ -92,7 +92,7 @@ fn initialize_native_asm_printer<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifRes
 
 
 fn generate_code_nif<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>> {
-    let llvm_error = 1;
+    const LLVM_ERROR: i32 = 1;
     let val1 = 32;
     let val2 = 16;
 
@@ -135,25 +135,29 @@ fn generate_code_nif<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>
 
     // verify it's all good
     let mut error: *mut c_char = 0 as *mut c_char;
-    let ok = unsafe {
+    match unsafe {
         let buf: *mut *mut c_char = &mut error;
         LLVMVerifyModule(module, LLVMVerifierFailureAction::LLVMReturnStatusAction, buf)
-    };
-    if ok == llvm_error {
-        let err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
-        panic!("cannot verify module '{:?}.\nError: {}", mod_name, err_msg);
+    } {
+        LLVM_ERROR => {
+            let _err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
+            // panic!("cannot verify module '{:?}.\nError: {}", mod_name, err_msg);
+            Ok((atoms::error(), atoms::error()).encode(env))
+        },
+        _ => {
+            // Clean up the builder now that we are finished using it.
+            unsafe { LLVMDisposeBuilder(builder) }
+
+            // Dump the LLVM IR to stdout so we can see what we've created
+            unsafe { LLVMDumpModule(module) }
+
+            match unsafe { write_vec_mut(&*module) } {
+                Ok(r) => Ok((atoms::ok(), r).encode(env)),
+                Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
+            }
+        },
     }
 
-    // Clean up the builder now that we are finished using it.
-    unsafe { LLVMDisposeBuilder(builder) }
-
-    // Dump the LLVM IR to stdout so we can see what we've created
-    unsafe { LLVMDumpModule(module) }
-
-    match unsafe { write_vec_mut(&*module) } {
-        Ok(r) => Ok((atoms::ok(), r).encode(env)),
-        Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
-    }
 }
 
 fn execute_code_nif<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
