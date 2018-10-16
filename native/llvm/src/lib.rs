@@ -163,6 +163,7 @@ fn generate_code_nif<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>
 fn execute_code_nif<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
     let id: usize = try!(args[0].decode());
     match read_vec(id) {
+        Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
         Ok(m) => {
             let module = m as *const LLVMModule as *mut LLVMModule;
 
@@ -200,7 +201,6 @@ fn execute_code_nif<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> 
             }
 
         },
-        Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
     }
 
 }
