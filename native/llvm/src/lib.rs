@@ -140,9 +140,8 @@ fn generate_code_nif<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>
         LLVMVerifyModule(module, LLVMVerifierFailureAction::LLVMReturnStatusAction, buf)
     } {
         LLVM_ERROR => {
-            let _err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
-            // panic!("cannot verify module '{:?}.\nError: {}", mod_name, err_msg);
-            Ok((atoms::error(), atoms::error()).encode(env))
+            let err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
+            Ok((atoms::error(), format!("cannot verify module '{:?}.\nError: {}", mod_name, err_msg)).encode(env))
         },
         _ => {
             // Clean up the builder now that we are finished using it.
@@ -153,7 +152,7 @@ fn generate_code_nif<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>
 
             match unsafe { write_vec_mut(&*module) } {
                 Ok(r) => Ok((atoms::ok(), r).encode(env)),
-                Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
+                Err(_) => Ok((atoms::error(), format!("can't write module to vector")).encode(env)),
             }
         },
     }
@@ -163,7 +162,7 @@ fn generate_code_nif<'a>(env: Env<'a>, _args: &[Term<'a>]) -> NifResult<Term<'a>
 fn execute_code_nif<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> {
     let id: usize = try!(args[0].decode());
     match read_vec(id) {
-        Err(_) => Ok((atoms::error(), atoms::error()).encode(env)),
+        Err(_) => Ok((atoms::error(), format!("id: {} is invalid.", id)).encode(env)),
         Ok(m) => {
             let module = m as *const LLVMModule as *mut LLVMModule;
 
@@ -181,10 +180,9 @@ fn execute_code_nif<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> 
                 LLVMCreateInterpreterForModule(engine_ref, module, buf)
             } {
                 LLVM_ERROR => {
-                    let _err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
-                    // println!("Execution error: {}", err_msg);
+                    let err_msg = unsafe { CString::from_raw(error).into_string().unwrap() };
                     unsafe { LLVMDisposeModule(module) }
-                    Ok((atoms::error(), atoms::error()).encode(env))
+                    Ok((atoms::error(), format!("Execution error: {}", err_msg)).encode(env))
                 },
                 _ => {
                     // run the function!
@@ -199,8 +197,6 @@ fn execute_code_nif<'a>(env: Env<'a>, args: &[Term<'a>]) -> NifResult<Term<'a>> 
                     Ok(atoms::ok().encode(env))
                 }
             }
-
         },
     }
-
 }

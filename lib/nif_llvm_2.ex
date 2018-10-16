@@ -36,7 +36,7 @@ defmodule NifLlvm2 do
         generate_code_nif()
         ~> execute_code_nif()
       _ ->
-        {:error, :error}
+        {:error, "This platform doesn't support native."}
     end
   end
 
@@ -45,7 +45,7 @@ defmodule NifLlvm2 do
       true ->
         generate_code_nif()
       _ ->
-        {:error, :error}
+        {:error, "This platform doesn't support native."}
     end
   end
 
@@ -54,7 +54,7 @@ defmodule NifLlvm2 do
       true ->
         execute_code_nif(code)
       _ ->
-        {:error, :error}
+        {:error, "This platform doesn't support native."}
     end
   end
 
